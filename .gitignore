@@ -1,0 +1,22 @@
+# Build and packaged artifacts
+/build/
+dist/
+*.spec
+
+# Platform-specific builds
+/mac_transcribe/
+ /windows_transcribe/
+
+# Generated outputs
+*.txt
+*.srt
+*.vtt
+*.m4a
+*.wav
+*.mp3
+
+# Python and environment files
+__pycache__/
+*.pyc
+.venv/
+.env/

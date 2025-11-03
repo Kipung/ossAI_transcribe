@@ -64,10 +64,10 @@ class TranscribeWorker(QThread):
         chosen_device = self.device or "auto"
         compute = "float16" if chosen_device == "cuda" else "int8"
 
-        # Prefer bundled local model if available
+        # Prefer bundled local model if present
         if LOCAL_MODEL_DIR.exists() and any(LOCAL_MODEL_DIR.iterdir()):
-            self.progress.emit(f"Loading local model: {LOCAL_MODEL_DIR}")
-            # Force offline to avoid any accidental network download
+            self.progress.emit(f"Using bundled model: {LOCAL_MODEL_DIR}")
+            # Block network downloads; run fully offline
             os.environ["HF_HUB_OFFLINE"] = "1"
             return WhisperModel(
                 str(LOCAL_MODEL_DIR),
@@ -75,9 +75,8 @@ class TranscribeWorker(QThread):
                 compute_type=compute
             )
 
-        # Fallback to model name; may download on first run if cache missing
-        self.progress.emit(f"No local model found. Loading by name: {self.model_size}")
-        # Do NOT set HF_HUB_OFFLINE here; allow download if online
+        # Fallback to name-based (may download if cache is empty)
+        self.progress.emit(f"No bundled model found. Loading by name: {self.model_size}")
         return WhisperModel(
             self.model_size,
             device=chosen_device,
@@ -181,7 +180,8 @@ class App(QWidget):
         r4 = QHBoxLayout()
         self.chk_srt = QCheckBox("Write SRT"); self.chk_srt.setChecked(True)
         self.chk_vtt = QCheckBox("Write VTT")
-        self.chk_vad = QCheckBox("VAD filter"); self.chk_vad.setChecked(True)
+        # Default VAD off for maximum portability
+        self.chk_vad = QCheckBox("VAD filter"); self.chk_vad.setChecked(False)
         r4.addWidget(self.chk_srt); r4.addWidget(self.chk_vtt); r4.addWidget(self.chk_vad)
         lay.addLayout(r4)
 

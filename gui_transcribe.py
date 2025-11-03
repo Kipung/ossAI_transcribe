@@ -13,6 +13,13 @@ from faster_whisper import WhisperModel
 
 DEFAULT_OUT = Path.home() / "WhisperLite"
 
+def app_root() -> Path:
+    # Works for dev and PyInstaller onefile/onedir
+    return Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+
+# Expected bundled path: models/whisper-tiny/* (CTranslate2 files)
+LOCAL_MODEL_DIR = app_root() / "models" / "whisper-tiny"
+
 def srt_ts(s):
     td = timedelta(seconds=s)
     return str(td)[:-3].replace('.', ',')
@@ -46,12 +53,36 @@ class TranscribeWorker(QThread):
         super().__init__()
         self.audio_path = audio_path
         self.out_dir = Path(out_dir)
-        self.model_size = model_size
+        self.model_size = model_size      # e.g., "tiny"
         self.language = language or None
         self.write_srt_flag = write_srt_flag
         self.write_vtt_flag = write_vtt_flag
         self.vad_flag = vad_flag
         self.device = device if device in ("cpu", "cuda", "auto") else "auto"
+
+    def _load_model(self):
+        chosen_device = self.device or "auto"
+        compute = "float16" if chosen_device == "cuda" else "int8"
+
+        # Prefer bundled local model if available
+        if LOCAL_MODEL_DIR.exists() and any(LOCAL_MODEL_DIR.iterdir()):
+            self.progress.emit(f"Loading local model: {LOCAL_MODEL_DIR}")
+            # Force offline to avoid any accidental network download
+            os.environ["HF_HUB_OFFLINE"] = "1"
+            return WhisperModel(
+                str(LOCAL_MODEL_DIR),
+                device=chosen_device,
+                compute_type=compute
+            )
+
+        # Fallback to model name; may download on first run if cache missing
+        self.progress.emit(f"No local model found. Loading by name: {self.model_size}")
+        # Do NOT set HF_HUB_OFFLINE here; allow download if online
+        return WhisperModel(
+            self.model_size,
+            device=chosen_device,
+            compute_type=compute
+        )
 
     def run(self):
         try:
@@ -67,14 +98,7 @@ class TranscribeWorker(QThread):
             vtt_path = out / f"{base}.vtt"
 
             self.progress.emit(f"Loading model: {self.model_size}")
-            chosen_device = self.device or "auto"
-            compute = "float16" if chosen_device == "cuda" else "int8"
-
-            model = WhisperModel(
-                self.model_size,
-                device=chosen_device,
-                compute_type=compute
-            )
+            model = self._load_model()
 
             self.progress.emit(f"Transcribing: {self.audio_path}")
             segments, info = model.transcribe(

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import sys, os, traceback
-from datetime import timedelta
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal
@@ -11,6 +10,8 @@ from PySide6.QtWidgets import (
 
 from faster_whisper import WhisperModel
 
+from transcribe import srt_ts, vtt_ts
+
 DEFAULT_OUT = Path.home() / "WhisperLite"
 
 def app_root() -> Path:
@@ -19,10 +20,6 @@ def app_root() -> Path:
 
 # Expected bundled path: models/whisper-tiny/* (CTranslate2 files)
 LOCAL_MODEL_DIR = app_root() / "models" / "whisper-tiny"
-
-def srt_ts(s):
-    td = timedelta(seconds=s)
-    return str(td)[:-3].replace('.', ',')
 
 def write_txt(path, segments):
     with open(path, "w", encoding="utf-8") as f:
@@ -35,9 +32,6 @@ def write_srt(path, segments):
             f.write(f"{i}\n{srt_ts(seg.start)} --> {srt_ts(seg.end)}\n{seg.text.strip()}\n\n")
 
 def write_vtt(path, segments):
-    def vtt_ts(s):
-        td = timedelta(seconds=s)
-        return str(td)[:-3]  # 00:00:00.000
     with open(path, "w", encoding="utf-8") as f:
         f.write("WEBVTT\n\n")
         for seg in segments:

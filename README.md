@@ -6,7 +6,7 @@ Offline speech-to-text for audio and video files. A small command-line tool and 
 
 ## Install
 
-Python 3.10 to 3.13 is the safe range.
+Tested on Python 3.14 (macOS, CPU). Python 3.10 or newer should work.
 
 ```bash
 git clone https://github.com/Kipung/ossAI_transcribe

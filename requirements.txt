@@ -1,4 +1,5 @@
-numpy
-PySide6
-faster_whisper
-
+numpy>=1.26
+PySide6>=6.6
+faster-whisper>=1.0,<2
+# av 16+ breaks faster-whisper ("open() got an unexpected keyword argument 'metadata_errors'")
+av<16

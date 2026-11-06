@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-import argparse, os, sys, platform
-from datetime import timedelta
+import argparse, os
 from faster_whisper import WhisperModel
 
 # ---------- Time formatting ----------
@@ -19,6 +18,13 @@ def srt_ts(s: float) -> str:
 
 def vtt_ts(s: float) -> str:
     return _format_hhmmss_ms(s, sep=".")
+
+def resolve_device(requested: str) -> str:
+    # ctranslate2 (faster-whisper's backend) has no Metal backend: CUDA or CPU only.
+    if requested != "auto":
+        return requested
+    import ctranslate2
+    return "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
 
 # ---------- Writers ----------
 def write_txt(path, segments):
@@ -51,8 +57,8 @@ def main():
     p.add_argument("--timestamps", action="store_true", help="Print per-segment timestamps")
 
     # Single definitions only
-    p.add_argument("--device", choices=["cpu", "metal", "cuda", "auto"], default="metal",
-                   help="metal for Apple Silicon, cuda for NVIDIA, cpu otherwise")
+    p.add_argument("--device", choices=["cpu", "cuda", "auto"], default="auto",
+                   help="auto uses cuda when an NVIDIA GPU is visible, else cpu (incl. Apple Silicon)")
     p.add_argument("--compute-type", default="float16",
                    help="Precision: default|float16|int8|int8_float16|int16")
     p.add_argument("--num-workers", type=int, default=1, help="Batch concurrency (maps to inter_threads)")
@@ -60,10 +66,7 @@ def main():
 
     args = p.parse_args()
 
-    # Resolve "auto" device
-    if args.device == "auto":
-        is_arm_mac = (sys.platform == "darwin" and platform.machine().lower() in {"arm64", "aarch64"})
-        args.device = "metal" if is_arm_mac else "cpu"
+    args.device = resolve_device(args.device)
 
     # Guard invalid CPU + float16 combo
     if args.device == "cpu" and args.compute_type.lower().startswith("float16"):
